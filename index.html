@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El tercio español - Fútbol</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <img src="https://cdn-icons-png.flaticon.com/512/4050/4050240.png" alt="Logo" class="logo">
+            <h1>El tercio español</h1>
+        </div>
+        <p><i>"Un lugar para hablar del fútbol español"</i></p>
+    </header>
+
+    <main>
+        <section id="form-container">
+            <h2>Enviar Mensaje</h2>
+            <form id="contact-form">
+                <div class="row">
+                    <input type="text" id="nombre_usuario" placeholder="Tu Nombre (Autor)" required>
+                    <input type="email" id="email" placeholder="Tu Email" required>
+                </div>
+                <div class="row">
+                    <input type="text" id="jugador" placeholder="Nombre del Jugador" required>
+                    <select id="asunto" required onchange="toggleMarketFields()">
+                        <option value="General">Consulta General</option>
+                        <option value="Mercado">Noticia de Mercado</option>
+                        <option value="Equipos">Información de Equipos</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <select id="equipo_destino" disabled>
+                        <option value="">Selecciona Equipo Destino</option>
+                        <optgroup label="Primera División">
+                            <option>Alavés</option><option>Athletic Club</option><option>Atlético de Madrid</option>
+                            <option>FC Barcelona</option><option>Celta de Vigo</option><option>Espanyol</option>
+                            <option>Getafe CF</option><option>Girona FC</option><option>Las Palmas</option>
+                            <option>Leganés</option><option>Mallorca</option><option>Osasuna</option>
+                            <option>Rayo Vallecano</option><option>Real Betis</option><option>Real Madrid</option>
+                            <option>Real Sociedad</option><option>Sevilla FC</option><option>Valencia CF</option>
+                            <option>Valladolid</option><option>Villarreal CF</option>
+                        </optgroup>
+                        <optgroup label="Segunda División">
+                            <option>Albacete</option><option>Almería</option><option>Burgos CF</option>
+                            <option>Cádiz CF</option><option>Cartagena</option><option>Castellón</option>
+                            <option>Córdoba CF</option><option>Deportivo</option><option>Eibar</option>
+                            <option>Elche CF</option><option>Eldense</option><option>Ferrol</option>
+                            <option>Granada CF</option><option>Huesca</option><option>Levante UD</option>
+                            <option>Málaga CF</option><option>Mirandés</option><option>Oviedo</option>
+                            <option>Racing</option><option>Sporting</option><option>Tenerife</option>
+                            <option>Zaragoza</option>
+                        </optgroup>
+                    </select>
+                    <select id="tipo_movimiento" disabled>
+                        <option value="Rumor">Rumor</option>
+                        <option value="Confirmado">Confirmado</option>
+                    </select>
+                </div>
+                <textarea id="mensaje" placeholder="Detalles adicionales de la noticia..." rows="3" required></textarea>
+                <button type="submit">Publicar en el Muro</button>
+            </form>
+        </section>
+
+        <section id="list-container">
+            <h2>Muro de Noticias</h2>
+            <div id="messages-list"></div>
+        </section>
+    </main>
+
+    <footer>
+        <p><strong>Christhian Perdomo Casanova - 1ºDAM</strong></p>
+        <p><a href="mailto:christhianperdomocasanova@gmail.com">christhianperdomocasanova@gmail.com</a></p>
+    </footer>
+
+    <script>
+        const API_URL = 'http://localhost:3000/formularios';
+
+        function toggleMarketFields() {
+            const isMarket = document.getElementById('asunto').value === 'Mercado';
+            document.getElementById('equipo_destino').disabled = !isMarket;
+            document.getElementById('tipo_movimiento').disabled = !isMarket;
+            if (isMarket) {
+                document.getElementById('equipo_destino').required = true;
+            } else {
+                document.getElementById('equipo_destino').required = false;
+                document.getElementById('equipo_destino').value = "";
+            }
+        }
+
+        const getLocalData = () => JSON.parse(localStorage.getItem('laliga_forms')) || [
+            {
+                nombre_usuario: 'Christhian Perdomo Casanova',
+                email: 'chris@valencia.es',
+                jugador: 'Christhian Perdomo',
+                asunto: 'Mercado',
+                tipo_movimiento: 'Confirmado',
+                equipo_destino: 'Valencia CF',
+                mensaje: 'Dorsal 23 - Uruguay - 24 años - Valor: 15M€',
+                fecha_creacion: new Date().toISOString()
+            }
+        ];
+
+        const renderMessages = async () => {
+            const list = document.getElementById('messages-list');
+            const localData = getLocalData();
+            
+            const displayData = (data) => {
+                list.innerHTML = data.map((f, index) => {
+                    const isMarket = f.asunto === 'Mercado';
+                    const badgeClass = isMarket ? (f.tipo_movimiento === 'Confirmado' ? 'badge-confirmed' : 'badge-rumor') : '';
+                    
+                    return `
+                    <div class="message-card ${badgeClass}">
+                        <div class="info">
+                            <h3>${f.jugador} ${isMarket ? `&rarr; ${f.equipo_destino}` : ''}</h3>
+                            <p class="subject">
+                                Subido por: ${f.nombre_usuario} 
+                                ${isMarket ? `<span class="status-tag">${f.tipo_movimiento}</span>` : ''}
+                            </p>
+                            <p class="msg">${f.mensaje}</p>
+                            <small class="date">${new Date(f.fecha_creacion).toLocaleString()} • ${f.email}</small>
+                        </div>
+                        <button class="delete-btn" onclick="deleteItem(${index})" title="Eliminar">&times;</button>
+                    </div>
+                `}).join('');
+            };
+
+            displayData(localData);
+            try {
+                const res = await fetch(API_URL);
+                if (res.ok) {
+                    const serverData = await res.json();
+                    if (serverData.length > 0) displayData(serverData);
+                }
+            } catch (e) {}
+        };
+
+        document.getElementById('contact-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                nombre_usuario: document.getElementById('nombre_usuario').value,
+                email: document.getElementById('email').value,
+                jugador: document.getElementById('jugador').value,
+                asunto: document.getElementById('asunto').value,
+                mensaje: document.getElementById('mensaje').value,
+                tipo_movimiento: document.getElementById('tipo_movimiento').value,
+                equipo_destino: document.getElementById('equipo_destino').value,
+                fecha_creacion: new Date().toISOString()
+            };
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error();
+            } catch (e) {
+                const local = getLocalData();
+                local.unshift(payload);
+                localStorage.setItem('laliga_forms', JSON.stringify(local));
+            }
+            e.target.reset();
+            toggleMarketFields();
+            renderMessages();
+        };
+
+        window.deleteItem = (index) => {
+            const local = getLocalData();
+            local.splice(index, 1);
+            localStorage.setItem('laliga_forms', JSON.stringify(local));
+            renderMessages();
+        };
+
+        renderMessages();
+    </script>
+</body>
+</html>
